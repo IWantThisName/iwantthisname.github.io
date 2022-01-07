@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>rocketmq源码梳理之push模式消费者的建立 - windwest</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="windwest"><meta name="msapplication-TileImage" content="/img/favicon.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="windwest"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="description" content="rocketmq push消费模式消费者的建立过程"><meta property="og:type" content="blog"><meta property="og:title" content="rocketmq源码梳理之push模式消费者的建立"><meta property="og:url" content="http://windwest.cn/2022/01/06/rocketmq%E6%BA%90%E7%A0%81%E6%A2%B3%E7%90%86%E4%B9%8Bpush%E6%A8%A1%E5%BC%8F%E6%B6%88%E8%B4%B9%E8%80%85%E7%9A%84%E5%BB%BA%E7%AB%8B/"><meta property="og:site_name" content="windwest"><meta property="og:description" content="rocketmq push消费模式消费者的建立过程"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="http://windwest.cn/images/rocketmq-consumer-1.png"><meta property="og:image" content="http://windwest.cn/images/rocketmq-consumer-2.png"><meta property="og:image" content="http://windwest.cn/images/rocketmq-consumer-3.png"><meta property="og:image" content="http://windwest.cn/images/rocketmq-consumer-4.png"><meta property="og:image" content="http://windwest.cn/images/rocketmq-consumer-5.png"><meta property="og:image" content="http://windwest.cn/images/rocketmq-consumer-6.png"><meta property="og:image" content="http://windwest.cn/images/rocketmq-consumer-7.png"><meta property="og:image" content="http://windwest.cn/images/rocketmq-consumer-8.png"><meta property="og:image" content="http://windwest.cn/images/rocketmq-consumer-9.png"><meta property="og:image" content="http://windwest.cn/images/rocketmq-consumer-10.png"><meta property="og:image" content="http://windwest.cn/images/rocketmq-consumer-11.png"><meta property="og:image" content="http://windwest.cn/images/rocketmq-consumer-12.png"><meta property="og:image" content="http://windwest.cn/images/rocketmq-consumer-12.png"><meta property="og:image" content="http://windwest.cn/images/rocketmq-consumer-13.png"><meta property="og:image" content="http://windwest.cn/images/rocketmq-consumer-14.png"><meta property="og:image" content="http://windwest.cn/images/rocketmq-consumer-15.png"><meta property="og:image" content="http://windwest.cn/images/rocketmq-consumer-16.png"><meta property="og:image" content="http://windwest.cn/images/rocketmq-consumer-17.png"><meta property="article:published_time" content="2022-01-06T01:14:00.000Z"><meta property="article:modified_time" content="2022-01-07T06:05:30.903Z"><meta property="article:author" content="windwest"><meta property="article:tag" content="源码"><meta property="article:tag" content="rocketmq"><meta property="twitter:card" content="summary"><meta property="twitter:image" content="/images/rocketmq-consumer-1.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"http://windwest.cn/2022/01/06/rocketmq%E6%BA%90%E7%A0%81%E6%A2%B3%E7%90%86%E4%B9%8Bpush%E6%A8%A1%E5%BC%8F%E6%B6%88%E8%B4%B9%E8%80%85%E7%9A%84%E5%BB%BA%E7%AB%8B/"},"headline":"rocketmq源码梳理之push模式消费者的建立","image":["http://windwest.cn/images/rocketmq-consumer-1.png","http://windwest.cn/images/rocketmq-consumer-2.png","http://windwest.cn/images/rocketmq-consumer-3.png","http://windwest.cn/images/rocketmq-consumer-4.png","http://windwest.cn/images/rocketmq-consumer-5.png","http://windwest.cn/images/rocketmq-consumer-6.png","http://windwest.cn/images/rocketmq-consumer-7.png","http://windwest.cn/images/rocketmq-consumer-8.png","http://windwest.cn/images/rocketmq-consumer-9.png","http://windwest.cn/images/rocketmq-consumer-10.png","http://windwest.cn/images/rocketmq-consumer-11.png","http://windwest.cn/images/rocketmq-consumer-12.png","http://windwest.cn/images/rocketmq-consumer-12.png","http://windwest.cn/images/rocketmq-consumer-13.png","http://windwest.cn/images/rocketmq-consumer-14.png","http://windwest.cn/images/rocketmq-consumer-15.png","http://windwest.cn/images/rocketmq-consumer-16.png","http://windwest.cn/images/rocketmq-consumer-17.png"],"datePublished":"2022-01-06T01:14:00.000Z","dateModified":"2022-01-07T06:05:30.903Z","author":{"@type":"Person","name":"windwest"},"publisher":{"@type":"Organization","name":"windwest","logo":{"@type":"ImageObject","url":{"text":"windwest"}}},"description":"rocketmq push消费模式消费者的建立过程"}</script><link rel="canonical" href="http://windwest.cn/2022/01/06/rocketmq%E6%BA%90%E7%A0%81%E6%A2%B3%E7%90%86%E4%B9%8Bpush%E6%A8%A1%E5%BC%8F%E6%B6%88%E8%B4%B9%E8%80%85%E7%9A%84%E5%BB%BA%E7%AB%8B/"><link rel="icon" href="/img/favicon.svg"><link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.2/css/all.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.10.0/dist/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.8.1/dist/css/justifiedGallery.min.css"><!--!--><!--!--><style>.pace{-webkit-pointer-events:none;pointer-events:none;-webkit-user-select:none;-moz-user-select:none;user-select:none}.pace-inactive{display:none}.pace .pace-progress{background:#3273dc;position:fixed;z-index:2000;top:0;right:100%;width:100%;height:2px}</style><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><!--!--><!--!--><script data-ad-client="ca-pub-9052002908657318" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js" async></script><meta name="generator" content="Hexo 5.4.0"></head><body class="is-2-column"><nav class="navbar navbar-main"><div class="container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/">windwest</a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">首页</a><a class="navbar-item" href="/archives">归档</a><a class="navbar-item" href="/categories">分类</a><a class="navbar-item" href="/tags">标签</a><a class="navbar-item" href="/about">关于</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/ppoffice/hexo-theme-icarus"><i class="fab fa-github"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-8-tablet is-8-desktop is-8-widescreen"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2022-01-06T01:14:00.000Z" title="2022/1/6 上午9:14:00">2022-01-06</time>发表</span><span class="level-item"><time dateTime="2022-01-07T06:05:30.903Z" title="2022/1/7 下午2:05:30">2022-01-07</time>更新</span><span class="level-item"> windwest </span><span class="level-item"><a class="link-muted" href="/categories/%E6%BA%90%E7%A0%81/">源码</a></span><span class="level-item">17 分钟读完 (大约2535个字)</span></div></div><h1 class="title is-3 is-size-4-mobile">rocketmq源码梳理之push模式消费者的建立</h1><div class="content"><p>rocketmq push消费模式消费者的建立过程</p>
+<span id="more"></span>
+<h4 id="示例代码"><a href="#示例代码" class="headerlink" title="示例代码"></a>示例代码</h4><pre><code>    //使用消费者组名初始化push模式消费者对象 消费者组名要唯一
+    DefaultMQPushConsumer consumer = new DefaultMQPushConsumer(&quot;please_rename_unique_group_name_4&quot;);
+
+    //设置消费起始位置 这里指定的是从头开始消费 consumer.setConsumeFromWhere(ConsumeFromWhere.CONSUME_FROM_FIRST_OFFSET);
+
+    //设置订阅的topic 以及tag
+    consumer.subscribe(&quot;TopicTest&quot;, &quot;*&quot;);
+
+    //设置消费消息后的回调函数 这里使用的不是有序消费
+    consumer.registerMessageListener(new MessageListenerConcurrently() &#123;
+
+        @Override
+        public ConsumeConcurrentlyStatus consumeMessage(List&lt;MessageExt&gt; msgs,
+            ConsumeConcurrentlyContext context) &#123;
+            System.out.printf(&quot;%s Receive New Messages: %s %n&quot;, Thread.currentThread().getName(), msgs);
+            return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
+        &#125;
+    &#125;);
+
+    //启动消费者消费
+    consumer.start();
+    
+    
+</code></pre>
+<h4 id="代码的执行流程"><a href="#代码的执行流程" class="headerlink" title="代码的执行流程"></a>代码的执行流程</h4><h5 id="1-消费者对象的初始化"><a href="#1-消费者对象的初始化" class="headerlink" title="1. 消费者对象的初始化"></a>1. 消费者对象的初始化</h5><pre><code>//使用消费者组名初始化push模式消费者对象 消费者组名要唯一
+DefaultMQPushConsumer consumer = new DefaultMQPushConsumer(&quot;please_rename_unique_group_name_4&quot;);
+</code></pre>
+<p>进入DefaultMqPushConsumer对象,可以看到声明了很多成员变量并初始化了默认值.整理如下:</p>
+<table>
+<thead>
+<tr>
+<th>变量名</th>
+<th>变量类型</th>
+<th>变量含义</th>
+<th>默认值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>messageModel</td>
+<td>MessageModel</td>
+<td>消费消息的模式,有两种配置,集群和广播</td>
+<td>集群,MessageModel.CLUSTERING</td>
+</tr>
+<tr>
+<td>consumeFromWhere</td>
+<td>ConsumeFromWhere</td>
+<td>从何处开始消费,配置值有从最开始、从最新、从指定时间戳</td>
+<td>从最新处,ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET;</td>
+</tr>
+<tr>
+<td>consumeTimestamp</td>
+<td>String</td>
+<td>消费时间戳,yyyyMMddHHmmss格式</td>
+<td>当前时间往前推30分钟</td>
+</tr>
+<tr>
+<td>consumeThreadMin</td>
+<td>int</td>
+<td>消费线程最小值</td>
+<td>20</td>
+</tr>
+<tr>
+<td>consumeThreadMax</td>
+<td>int</td>
+<td>消费线程最大值</td>
+<td>20</td>
+</tr>
+<tr>
+<td>adjustThreadPoolNumsThreshold</td>
+<td>int</td>
+<td>动态调整线程池数量的阈值</td>
+<td>10000</td>
+</tr>
+<tr>
+<td>consumeConcurrentlyMaxSpan</td>
+<td>int</td>
+<td>并发消费最大数据量</td>
+<td>2000</td>
+</tr>
+<tr>
+<td>pullThresholdForQueue</td>
+<td>int</td>
+<td>队列缓存的最大消息量</td>
+<td>1000</td>
+</tr>
+<tr>
+<td>pullThresholdSizeForQueue</td>
+<td>int</td>
+<td>队列拉取的消息的大小阈值,单位为MB</td>
+<td>100</td>
+</tr>
+<tr>
+<td>pullThresholdForTopic</td>
+<td>int</td>
+<td>topic一次性拉取的最大消息量,例如改值设置1000时,而有10个队列的话,则每个队列最大只能拉取100个,相当于pullThresholdForQueue 设置了100</td>
+<td>-1,不限制</td>
+</tr>
+<tr>
+<td>pullInterval</td>
+<td>long</td>
+<td>拉取间隔</td>
+<td>0,拉取后不等待</td>
+</tr>
+<tr>
+<td>consumeMessageBatchMaxSize</td>
+<td>int</td>
+<td>消费的批量大小</td>
+<td>1</td>
+</tr>
+<tr>
+<td>pullBatchSize</td>
+<td>int</td>
+<td>批量拉取大小</td>
+<td>32</td>
+</tr>
+<tr>
+<td>postSubscriptionWhenPull</td>
+<td>boolean</td>
+<td>拉取的时候是否提交订阅信息</td>
+<td>false</td>
+</tr>
+<tr>
+<td>unitMode</td>
+<td>boolean</td>
+<td>单元模式</td>
+<td>false</td>
+</tr>
+<tr>
+<td>maxReconsumeTimes</td>
+<td>int</td>
+<td>最大重试次数,有序消费时,-1代表无穷大,无序消费时,-1代表16次</td>
+<td>-1</td>
+</tr>
+<tr>
+<td>suspendCurrentQueueTimeMillis</td>
+<td>long</td>
+<td>—-</td>
+<td>1000</td>
+</tr>
+<tr>
+<td>consumeTimeout</td>
+<td>long</td>
+<td>消费超时时间,单位分钟</td>
+<td>15</td>
+</tr>
+<tr>
+<td>awaitTerminationMillisWhenShutdown</td>
+<td>long</td>
+<td>停止时暂停等消费时间,0就是不等待</td>
+<td>0</td>
+</tr>
+<tr>
+<td>同时DefaultMqPushConsumer对象继承了ClientConfig对象,该对象也模式初始化了一些配置,整理如下</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody></table>
+<table>
+<thead>
+<tr>
+<th>变量名</th>
+<th>变量类型</th>
+<th>变量含义</th>
+<th>默认值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>namesrvAddr</td>
+<td>String</td>
+<td>元数据服务器地址</td>
+<td>从系统参数rocketmq.namesrv.addr中获取,获取不到就从环境变量NAMESRV_ADDR中获取</td>
+</tr>
+<tr>
+<td>clientIP</td>
+<td>String</td>
+<td>客户端ip</td>
+<td>通过RemotingUtil.getLocalAddress()获取</td>
+</tr>
+<tr>
+<td>instanceName</td>
+<td>String</td>
+<td>实例名称</td>
+<td>从系统参数rocketmq.client.name中获取,获取不到就使用默认名称DEFAULT</td>
+</tr>
+<tr>
+<td>clientCallbackExecutorThreads</td>
+<td>int</td>
+<td>客户端回调执行的线程数</td>
+<td>通过Runtime.getRuntime().availableProcessors()获取</td>
+</tr>
+<tr>
+<td>accessChannel</td>
+<td>AccessChannel</td>
+<td>访问通道,可选值有LOCAL和CLOUD</td>
+<td>AccessChannel.LOCAL</td>
+</tr>
+<tr>
+<td>pollNameServerInterval</td>
+<td>long</td>
+<td>从元数据服务器拉取信息间隔</td>
+<td>30000,单位毫秒</td>
+</tr>
+<tr>
+<td>heartbeatBrokerInterval</td>
+<td>long</td>
+<td>心跳间隔时间</td>
+<td>30000,单位毫秒</td>
+</tr>
+<tr>
+<td>persistConsumerOffsetInterval</td>
+<td>long</td>
+<td>消费位移持久化间隔</td>
+<td>5000,单位毫秒</td>
+</tr>
+<tr>
+<td>pullTimeDelayMillsWhenException</td>
+<td>long</td>
+<td>出现异常后拉取延迟时间</td>
+<td>1000,单位毫秒</td>
+</tr>
+<tr>
+<td>unitMode</td>
+<td>boolean</td>
+<td>单元模式</td>
+<td>false</td>
+</tr>
+<tr>
+<td>vipChannelEnabled</td>
+<td>boolean</td>
+<td>是否开启vip通道</td>
+<td>从系统参数com.rocketmq.sendMessageWithVIPChannel获取,获取不到默认值为false</td>
+</tr>
+<tr>
+<td>useTLS</td>
+<td>boolean</td>
+<td>是否使用tls安全协议</td>
+<td>从系统参数tls.enable获取,获取不到默认值为false</td>
+</tr>
+<tr>
+<td>mqClientApiTimeout</td>
+<td>long</td>
+<td>客户端超时时间</td>
+<td>3000,单位毫秒</td>
+</tr>
+<tr>
+<td>language</td>
+<td>LanguageCode</td>
+<td>代码语言</td>
+<td>LanguageCode.JAVA</td>
+</tr>
+</tbody></table>
+<p>调用了另一个重载的构造方法,并设置了默认的再平衡策略AllocateMessageQueueAveragely<br><img src="/images/rocketmq-consumer-1.png" alt="upload successful"></p>
+<p>重载的构造方法初始化了DefaultMQPushConsumerImpl对象<br><img src="/images/rocketmq-consumer-2.png" alt="overwrote existing file"></p>
+<p>DefaultMQPushConsumerImpl对象初始化了设置了pullTimeDelayMillsWhenException,该参数为当出现异常时,拉取消息推迟多少秒,默认值从ClientConfig中获取的,为1000毫秒<br><img src="/images/rocketmq-consumer-3.png" alt="upload successful"><br>同时该类也默认初始化了不少配置,整理如下:</p>
+<table>
+<thead>
+<tr>
+<th>变量名</th>
+<th>变量类型</th>
+<th>变量含义</th>
+<th>默认值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>pullTimeDelayMillsWhenException</td>
+<td>long</td>
+<td>出现异常后拉取延迟时间</td>
+<td>3000,单位毫秒,但是在构造函数执行时,默认会重新赋值,改为ClientConfig中的默认值,为1000</td>
+</tr>
+<tr>
+<td>PULL_TIME_DELAY_MILLS_WHEN_FLOW_CONTROL</td>
+<td>long</td>
+<td>出现流量控制后拉取延迟时间</td>
+<td>50,单位毫秒</td>
+</tr>
+<tr>
+<td>PULL_TIME_DELAY_MILLS_WHEN_SUSPEND</td>
+<td>long</td>
+<td>当消费端暂停后拉取延迟时间</td>
+<td>1000,单位毫秒</td>
+</tr>
+<tr>
+<td>BROKER_SUSPEND_MAX_TIME_MILLIS</td>
+<td>long</td>
+<td>节点暂停最大时间</td>
+<td>15000,单位毫秒</td>
+</tr>
+<tr>
+<td>CONSUMER_TIMEOUT_MILLIS_WHEN_SUSPEND</td>
+<td>long</td>
+<td>当暂停时消费超时时间</td>
+<td>30000,单位毫秒</td>
+</tr>
+<tr>
+<td>rebalanceImpl</td>
+<td>RebalanceImpl</td>
+<td>再平衡类</td>
+<td>RebalancePushImpl,传入了当前对象构造</td>
+</tr>
+<tr>
+<td>consumerStartTimestamp</td>
+<td>long</td>
+<td>消费开始时间戳</td>
+<td>System.currentTimeMillis(),当前时间</td>
+</tr>
+<tr>
+<td>serviceState</td>
+<td>ServiceState</td>
+<td>消费者当前状态,值有CREATE_JUST(创建未启动) 、RUNNING(正在运行)、SHUTDOWN_ALREADY(已经停止)、START_FAILED(启动失败)</td>
+<td>ServiceState.CREATE_JUST</td>
+</tr>
+</tbody></table>
+<p>至此DefaultMQPushConsumer对象初始化完毕,该环节主要是初始化一些配置以及关联对象的一些配置</p>
+<h5 id="2-个性化配置"><a href="#2-个性化配置" class="headerlink" title="2. 个性化配置"></a>2. 个性化配置</h5><pre><code>//设置消费起始位置 这里指定的是从头开始消费
+consumer.setConsumeFromWhere(ConsumeFromWhere.CONSUME_FROM_FIRST_OFFSET);
+</code></pre>
+<p>对于一些配置的设置只是改变了下配置值,如上面的设置起始位置,在具体用到的时候会生效.可设置的配置可以关注下上面梳理的各个对象初始化的配置.</p>
+<h5 id="3-配置订阅信息和回调函数"><a href="#3-配置订阅信息和回调函数" class="headerlink" title="3. 配置订阅信息和回调函数"></a>3. 配置订阅信息和回调函数</h5><pre><code>//设置订阅的topic 以及tag
+consumer.subscribe(&quot;TopicTest&quot;, &quot;*&quot;);
+//设置消费消息后的回调函数 这里使用的不是有序消费
+consumer.registerMessageListener(new MessageListenerConcurrently() &#123;
+        @Override
+        public ConsumeConcurrentlyStatus consumeMessage(List&lt;MessageExt&gt; msgs,
+            ConsumeConcurrentlyContext context) &#123;
+            System.out.printf(&quot;%s Receive New Messages: %s %n&quot;, Thread.currentThread().getName(), msgs);
+            return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
+        &#125;
+&#125;);
+</code></pre>
+<p><img src="/images/rocketmq-consumer-4.png" alt="upload successful"><br>继续调用了DefaultMQPushConsumerImpl对象的subscribe方法,另外此处通过调用withNamespace方法对topic名称进行包装,就是给topic名称前再加上命名空间的值,如命名空间为aaa,topic为test,此处就会包装成aaa%topic,通过配置命名空间,可以在不改动代码的情况下,切换mq的消费环境</p>
+<p><img src="/images/rocketmq-consumer-5.png" alt="upload successful"><br>首先使用FilterAPI.buildSubscriptionData(topic, subExpression)生成订阅对象SubscriptionData.该对象保存了订阅的topic,以及配置的过滤表达式,如果指定了tag,将会把tag放入tagSet中,并且将tag的hash值放入codeSet中用以过滤.<br>将subscriptionData放入rebalanceImpl的subscriptionInner成员变量中,这是一个map,key为topic,值为订阅对象<br>此时mQClientFactory对象还未初始化,所以此时还不执行</p>
+<p><img src="/images/rocketmq-consumer-6.png" alt="upload successful"><br>然后将消费到消息后的回调函数复制给DefaultMQPushConsumer和DefaultMQPushConsumerImpl对象的messageListener对象中</p>
+<h5 id="4-启动消费者"><a href="#4-启动消费者" class="headerlink" title="4. 启动消费者"></a>4. 启动消费者</h5><pre><code>//启动消费者消费
+consumer.start();
+</code></pre>
+<p><img src="/images/rocketmq-consumer-7.png" alt="upload successful"><br>跟之前的topic一样,给消费者组名加上namespace值<br>然后执行defaultMQPushConsumerImpl的start方法  </p>
+<p><img src="/images/rocketmq-consumer-8.png" alt="upload successful"><br>该方法根据当前服务的状态执行不同的逻辑,由于是刚创建,状态值为CREATE_JUST,所以执行这个分支的逻辑.<br>首先将服务状态修改为START_FAILED再执行后续逻辑,以防止启动异常后重复启动<br>checkConfig检查必要的配置以及配置格式是否正确<br>copySubscription里主要是为当前消费者组增加retry消费者组<br>当消费模式是集群时,调用changeInstanceNameToPID把默认的实例名改为使用进程id  </p>
+<p><img src="/images/rocketmq-consumer-9.png" alt="upload successful"><br>初始化MQClientInstance对象,并以clientId为key,放入factoryTable中.该对象主要用netty与服务端通信</p>
+<p><img src="/images/rocketmq-consumer-10.png" alt="upload successful"><br>初始化了nettyClientConfig对象,主要配置netty连接的相关配置<br>初始化了ClientRemotingProcessor对象,处理服务端的一些响应逻辑<br>初始化了MQClientAPIImpl,将clientRemotingProcessor的响应逻辑按照响应编码注册到了netty中<br>初始化了MQAdminImpl对象<br>初始化了PullMessageService对象<br>初始化了RebalanceService对象<br>初始化了defaultMQProducer对象<br>初始化了consumerStatsManager对象,可打印状态信息</p>
+<p>紧接着主线的初始化<br>给自平衡对象设置消费者组名,消费模式,再平衡策略,以及通信客户端</p>
+<p>紧接着初始化了PullAPIWrapper对象<br>紧接着初始化了OffsetStore对象,当下消费模式为集群模式,所以使用了RemoteBrokerOffsetStore.</p>
+<p>紧接着根据回调函数类型,来设置消费是否有序,当下为无序消费,ConsumeMessageConcurrentlyService,调用该类的start方法,会启动一个定期执行的线程池,用以清理过期消息</p>
+<p>以consumerGroup为key,当前消费者对象为值放入MQClientInstance的consumerTable中</p>
+<p>然后调用MQClientInstance的start方法</p>
+<p><img src="/images/rocketmq-consumer-11.png" alt="overwrote existing file"><br>首先获取元数据服务器地址<br>然后调用mqClientApiImpl的start方法与mq服务端建立netty连接<br>然后启动部分定时任务<br>然后启动拉取线程<br>然后启动再平衡线程<br>然后启动默认的producer线程<br>然后修改服务状态为Running<br>至此初始化结束.</p>
+<p>后面都是各个线程执行操作.核心就是以下几个线程  </p>
+<h5 id="RebalanceService"><a href="#RebalanceService" class="headerlink" title="RebalanceService"></a>RebalanceService</h5><p><img src="/images/rocketmq-consumer-12.png" alt="upload successful"><br>定期再平衡<br>PullMessageService定期拉取数据<br>fetchNameServerAddr定期获取元数据地址<br>updateTopicRouteInfoFromNameServer定期获取topic路由<br>cleanOfflineBroker定期清理下线节点<br>sendHeartbeatToAllBrokerWithLock定期发送心跳线程<br>persistAllConsumerOffset持久化所有消费位移<br>adjustThreadPool定期调整线程池  </p>
+<p>下面重点介绍这些线程的作用</p>
+<h4 id="各线程作用"><a href="#各线程作用" class="headerlink" title="各线程作用"></a>各线程作用</h4><h5 id="RebalanceService-1"><a href="#RebalanceService-1" class="headerlink" title="RebalanceService"></a>RebalanceService</h5><p><img src="/images/rocketmq-consumer-12.png" alt="upload successful"></p>
+<p>等待间隔waitInterval,取自系统参数rocketmq.client.rebalance.waitInterval,如果未设置,默认值为20ms</p>
+<p><img src="/images/rocketmq-consumer-13.png" alt="upload successful"><br>如果hasNotified为true,则不等待直接返回<br>否则等待interval时间再返回</p>
+<p><img src="/images/rocketmq-consumer-14.png" alt="upload successful"><br>遍历consumerTable,执行每一个消费者对象的doRebalance方法,当前为Push模式的消费者,所以执行DefaultMQPushConsumerImpl的doRebalance方法</p>
+<p><img src="/images/rocketmq-consumer-15.png" alt="upload successful"><br>最终调用的RebalanceImpl的doRebalance方法,当前是无序</p>
+<p><img src="/images/rocketmq-consumer-16.png" alt="upload successful"><br>获取订阅信息,根据订阅信息获取topic,然后调用rebalanceByTopic方法,该方法根据消费模式执行不同的再平衡逻辑,当前消费模式是集群</p>
+<p><img src="/images/rocketmq-consumer-17.png" alt="upload successful"></p>
+</div><div class="article-licensing box"><div class="licensing-title"><p>rocketmq源码梳理之push模式消费者的建立</p><p><a href="http://windwest.cn/2022/01/06/rocketmq源码梳理之push模式消费者的建立/">http://windwest.cn/2022/01/06/rocketmq源码梳理之push模式消费者的建立/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>windwest</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2022-01-06</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2022-01-07</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icons" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="icon fab fa-creative-commons"></i></a><a class="icons" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="icon fab fa-creative-commons-by"></i></a><a class="icons" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="icon fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/%E6%BA%90%E7%A0%81/">源码</a><a class="link-muted mr-2" rel="tag" href="/tags/rocketmq/">rocketmq</a></div><div class="sharethis-inline-share-buttons"></div><script src="https://platform-api.sharethis.com/js/sharethis.js#property=61ce9a5cc4efce0019fd6312&amp;product=inline-share-buttons" defer></script></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">喜欢这篇文章？打赏一下作者吧</h3><div class="buttons is-centered"><a class="button donate" data-type="alipay"><span class="icon is-small"><i class="fab fa-alipay"></i></span><span>支付宝</span><span class="qrcode"><img src="/" alt="支付宝"></span></a><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>微信</span><span class="qrcode"><img src="/" alt="微信"></span></a></div></div></div><nav class="post-navigation mt-4 level is-mobile"><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/2021/12/31/%E6%8E%92%E5%BA%8F%E7%AE%97%E6%B3%95%E4%B9%8B%E5%BF%AB%E9%80%9F%E6%8E%92%E5%BA%8F/"><span class="level-item">排序算法之快速排序</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card"><div class="card-content"><h3 class="title is-5">评论</h3><div id="disqus_thread"><noscript>Please enable JavaScript to view the <a target="_blank" rel="noopener" href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div><script>var disqus_config = function () {
+            this.page.url = 'http://windwest.cn/2022/01/06/rocketmq%E6%BA%90%E7%A0%81%E6%A2%B3%E7%90%86%E4%B9%8Bpush%E6%A8%A1%E5%BC%8F%E6%B6%88%E8%B4%B9%E8%80%85%E7%9A%84%E5%BB%BA%E7%AB%8B/';
+            this.page.identifier = '2022/01/06/rocketmq源码梳理之push模式消费者的建立/';
+        };
+        (function() {
+            var d = document, s = d.createElement('script');  
+            s.src = '//' + 'windwest' + '.disqus.com/embed.js';
+            s.setAttribute('data-timestamp', +new Date());
+            (d.head || d.body).appendChild(s);
+        })();</script></div></div></div><div class="column column-left is-4-tablet is-4-desktop is-4-widescreen  order-1"><div class="card widget" data-type="profile"><div class="card-content"><nav class="level"><div class="level-item has-text-centered flex-shrink-1"><div><figure class="image is-128x128 mx-auto mb-2"><img class="avatar" src="/img/avatar.png" alt="windwest"></figure><p class="title is-size-4 is-block" style="line-height:inherit;">windwest</p><p class="is-size-6 is-block">这个世界太危险,只有代码最安全</p><p class="is-size-6 is-flex justify-content-center"><i class="fas fa-map-marker-alt mr-1"></i><span>安徽合肥</span></p></div></div></nav><nav class="level is-mobile"><div class="level-item has-text-centered is-marginless"><div><p class="heading">文章</p><a href="/archives"><p class="title">2</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">分类</p><a href="/categories"><p class="title">2</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">标签</p><a href="/tags"><p class="title">4</p></a></div></div></nav><div class="level"><a class="level-item button is-primary is-rounded" href="https://github.com/ppoffice" target="_blank" rel="noopener">关注我</a></div><div class="level is-mobile is-multiline"><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="Github" href="https://github.com/ppoffice"><i class="fab fa-github"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="Facebook" href="https://facebook.com"><i class="fab fa-facebook"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="Twitter" href="https://twitter.com"><i class="fab fa-twitter"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="Dribbble" href="https://dribbble.com"><i class="fab fa-dribbble"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="RSS" href="/"><i class="fas fa-rss"></i></a></div></div></div><!--!--><div class="card widget" data-type="links"><div class="card-content"><div class="menu"><h3 class="menu-label">链接</h3><ul class="menu-list"><li><a class="level is-mobile" href="https://hexo.io" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">Hexo</span></span><span class="level-right"><span class="level-item tag">hexo.io</span></span></a></li></ul></div></div></div><div class="card widget" data-type="categories"><div class="card-content"><div class="menu"><h3 class="menu-label">分类</h3><ul class="menu-list"><li><a class="level is-mobile" href="/categories/%E6%BA%90%E7%A0%81/"><span class="level-start"><span class="level-item">源码</span></span><span class="level-end"><span class="level-item tag">1</span></span></a></li><li><a class="level is-mobile" href="/categories/%E7%AE%97%E6%B3%95/"><span class="level-start"><span class="level-item">算法</span></span><span class="level-end"><span class="level-item tag">1</span></span></a></li></ul></div></div></div><div class="card widget" data-type="recent-posts"><div class="card-content"><h3 class="menu-label">最新文章</h3><article class="media"><div class="media-content"><p class="date"><time dateTime="2022-01-06T01:14:00.000Z">2022-01-06</time></p><p class="title"><a href="/2022/01/06/rocketmq%E6%BA%90%E7%A0%81%E6%A2%B3%E7%90%86%E4%B9%8Bpush%E6%A8%A1%E5%BC%8F%E6%B6%88%E8%B4%B9%E8%80%85%E7%9A%84%E5%BB%BA%E7%AB%8B/">rocketmq源码梳理之push模式消费者的建立</a></p><p class="categories"><a href="/categories/%E6%BA%90%E7%A0%81/">源码</a></p></div></article><article class="media"><div class="media-content"><p class="date"><time dateTime="2021-12-31T06:28:00.000Z">2021-12-31</time></p><p class="title"><a href="/2021/12/31/%E6%8E%92%E5%BA%8F%E7%AE%97%E6%B3%95%E4%B9%8B%E5%BF%AB%E9%80%9F%E6%8E%92%E5%BA%8F/">排序算法之快速排序</a></p><p class="categories"><a href="/categories/%E7%AE%97%E6%B3%95/">算法</a></p></div></article></div></div><div class="card widget" data-type="archives"><div class="card-content"><div class="menu"><h3 class="menu-label">归档</h3><ul class="menu-list"><li><a class="level is-mobile" href="/archives/2022/01/"><span class="level-start"><span class="level-item">一月 2022</span></span><span class="level-end"><span class="level-item tag">1</span></span></a></li><li><a class="level is-mobile" href="/archives/2021/12/"><span class="level-start"><span class="level-item">十二月 2021</span></span><span class="level-end"><span class="level-item tag">1</span></span></a></li></ul></div></div></div><div class="card widget" data-type="tags"><div class="card-content"><div class="menu"><h3 class="menu-label">标签</h3><div class="field is-grouped is-grouped-multiline"><div class="control"><a class="tags has-addons" href="/tags/rocketmq/"><span class="tag">rocketmq</span><span class="tag">1</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E6%8E%92%E5%BA%8F/"><span class="tag">排序</span><span class="tag">1</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E6%BA%90%E7%A0%81/"><span class="tag">源码</span><span class="tag">1</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E7%AE%97%E6%B3%95/"><span class="tag">算法</span><span class="tag">1</span></a></div></div></div></div></div><div class="card widget" data-type="subscribe-email"><div class="card-content"><div class="menu"><h3 class="menu-label">订阅更新</h3><form action="https://feedburner.google.com/fb/a/mailverify" method="post" target="popupwindow" onsubmit="window.open(&#039;https://feedburner.google.com/fb/a/mailverify?uri=&#039;,&#039;popupwindow&#039;,&#039;scrollbars=yes,width=550,height=520&#039;);return true"><input type="hidden" value="" name="uri"><input type="hidden" name="loc" value="en_US"><div class="field has-addons"><div class="control has-icons-left is-expanded"><input class="input" name="email" type="email" placeholder="Email"><span class="icon is-small is-left"><i class="fas fa-envelope"></i></span></div><div class="control"><input class="button" type="submit" value="订阅"></div></div></form></div></div></div><div class="card widget" data-type="adsense"><div class="card-content"><div class="menu"><h3 class="menu-label">广告</h3><script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-9052002908657318" data-ad-slot="4998304568" data-ad-format="auto" data-full-width-responsive="true"></ins><script>(adsbygoogle = window.adsbygoogle || []).push({});</script></div></div></div><div class="card widget" data-type="subscribe-email"><div class="card-content"><div class="menu"><h3 class="menu-label">follow.it</h3><form action="" method="post" target="_blank"><div class="field has-addons"><div class="control has-icons-left is-expanded"><input class="input" name="email" type="email" placeholder="Email"><span class="icon is-small is-left"><i class="fas fa-envelope"></i></span></div><div class="control"><input class="button" type="submit" value="订阅"></div></div></form></div></div></div></div><!--!--></div></div></section><footer class="footer"><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/">windwest</a><p class="is-size-7"><span>&copy; 2022 windwest</span>  Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> &amp; <a href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Creative Commons" href="https://creativecommons.org/"><i class="fab fa-creative-commons"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Attribution 4.0 International" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/ppoffice/hexo-theme-icarus"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script><script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" defer></script><script>moment.locale("zh-CN");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script src="/js/column.js"></script><script src="/js/animation.js"></script><a id="back-to-top" title="回到顶端" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "此网站使用Cookie来改善您的体验。",
+          dismiss: "知道了！",
+          allow: "允许使用Cookie",
+          deny: "拒绝",
+          link: "了解更多",
+          policy: "Cookie政策",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdn.jsdelivr.net/npm/lightgallery@1.10.0/dist/js/lightgallery.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.8.1/dist/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><!--!--><!--!--><!--!--><script src="/js/main.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script src="/js/insight.js" defer></script><script>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
+        });</script></body></html>
